@@ -77,15 +77,26 @@ module ActiveRecord
 
           if options[:source_type]
             scope.where! reflection.foreign_type => options[:source_type]
-          else
-            unless reflection_scope.where_values.empty?
-              scope.includes_values = Array(reflection_scope.values[:includes] || options[:source])
-              scope.where_values    = reflection_scope.values[:where]
-              scope.bind_values     = reflection_scope.bind_values
+          elsif !reflection_scope.where_values.empty?
+            scope.where_values = reflection_scope.values[:where]
+            scope.bind_values  = reflection_scope.bind_values
+            values = reflection_scope.values
+
+            if includes = values[:includes]
+              scope.includes!(source_reflection.name => includes)
+            else
+              scope.includes!(source_reflection.name)
             end
 
-            scope.references! reflection_scope.values[:references]
-            scope = scope.order reflection_scope.values[:order] if scope.eager_loading?
+            if values[:references] && !values[:references].empty?
+              scope.references!(values[:references])
+            else
+              scope.references!(source_reflection.table_name)
+            end
+
+            if scope.eager_loading? && order_values = values[:order]
+              scope = scope.order(order_values)
+            end
           end
 
           scope
